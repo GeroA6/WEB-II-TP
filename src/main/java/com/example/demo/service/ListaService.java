@@ -1,8 +1,10 @@
 package com.example.demo.service;
 
 import java.util.List;
+import java.util.Objects;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.example.demo.domain.Lista;
 import com.example.demo.dto.favorito.FavoritoResponse;
@@ -12,6 +14,8 @@ import com.example.demo.exception.ConflictoEliminacionException;
 import com.example.demo.exception.RecursoNoEncontradoException;
 import com.example.demo.repository.FavoritoEntity;
 import com.example.demo.repository.FavoritoJpaRepository;
+import com.example.demo.repository.ListaEntity;
+import com.example.demo.repository.ListaJpaRespository;
 import com.example.demo.repository.ListaRepository;
 
 @Service
@@ -19,10 +23,15 @@ public class ListaService {
 
     private final ListaRepository listaRepository;
     private final FavoritoJpaRepository favoritoJpaRepository;
+    private final ListaJpaRespository listaJpaRespository;
 
-    public ListaService(ListaRepository listaRepository, FavoritoJpaRepository favoritoJpaRepository) {
+    public ListaService(
+            ListaRepository listaRepository,
+            FavoritoJpaRepository favoritoJpaRepository,
+            ListaJpaRespository listaJpaRespository) {
         this.listaRepository = listaRepository;
         this.favoritoJpaRepository = favoritoJpaRepository;
+        this.listaJpaRespository = listaJpaRespository;
     }
 
     public List<ListaResponse> obtenerTodas() {
@@ -58,6 +67,28 @@ public class ListaService {
             throw new ConflictoEliminacionException("No se puede eliminar la lista porque todavía contiene favoritos");
         }
         listaRepository.deleteById(id);
+    }
+
+    @Transactional
+    public void moverFavoritosYEliminarOrigen(Long origenId, Long destinoId) {
+        if (Objects.equals(origenId, destinoId)) {
+            throw new IllegalArgumentException(
+                    "La lista de destino debe ser distinta de la lista de origen");
+        }
+
+        buscarOFallar(origenId);
+        buscarOFallar(destinoId);
+
+        ListaEntity destino = listaJpaRespository.findById(destinoId)
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "No existe la lista con id: " + destinoId));
+
+        List<FavoritoEntity> favoritosOrigen = favoritoJpaRepository.findByListaId(origenId);
+
+        favoritosOrigen.forEach(favorito -> favorito.setLista(destino));
+        favoritoJpaRepository.saveAll(favoritosOrigen);
+
+        listaRepository.deleteById(origenId);
     }
 
     // Métodos auxiliares

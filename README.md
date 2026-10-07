@@ -109,3 +109,28 @@ En la Consigna 6, la conversión de `lista_id` en una columna obligatoria (`NOT 
    Las migraciones reflejan el historial cronológico del esquema. Para pasar de una columna opcional a una obligatoria en una base de datos con datos reales, es indispensable una estrategia en fases:
    - Primero se creó como anulable en `V3`.
    - Luego, en `V4`, se crearon los valores por defecto (`'Sin clasificar'`) y se actualizaron los registros huérfanos antes de imponer la restricción física `ALTER COLUMN lista_id SET NOT NULL`. Modificar `V3` directamente habría impedido este saneamiento progresivo en bases ya pobladas.
+
+---
+
+## Transacciones y atomicidad: mover favoritos entre listas
+
+El endpoint `POST /api/listas/{origenId}/mover-favoritos` traslada todos los favoritos de una lista de origen hacia otra lista de destino. La petición recibe el ID de destino:
+
+```json
+{
+  "destinoId": 2
+}
+```
+
+El caso de uso se resuelve en `ListaService`, que es la capa que contiene las reglas de negocio. Antes de modificar datos, valida que las listas de origen y destino existan; si alguna no existe, la API responde `404 Not Found`. También rechaza usar la misma lista como origen y destino con `400 Bad Request`.
+
+Una vez validados los datos, el servicio reasigna cada `FavoritoEntity` a la lista destino y elimina la lista origen. El método está anotado con `@Transactional`, por lo que todos esos pasos conforman una única transacción de base de datos.
+
+### ¿Por qué es necesaria la transacción?
+
+La operación requiere preservar especialmente dos propiedades ACID:
+
+1. **Atomicidad:** el traslado completo se confirma o se revierte por completo. Si falla el guardado de los favoritos o la eliminación de la lista de origen, Spring marca la transacción para rollback y PostgreSQL no conserva cambios parciales.
+2. **Consistencia:** al finalizar exitosamente, todos los favoritos que pertenecían al origen apuntan al destino y la lista origen ya no existe. No queda una lista eliminada con favoritos que la referencien, ni favoritos en un estado intermedio.
+
+Sin `@Transactional`, cada operación podría confirmarse por separado. Por ejemplo, se podrían mover los favoritos pero fallar al borrar la lista de origen; ese resultado no representa el caso de uso solicitado y deja la información parcialmente actualizada.

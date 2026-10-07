@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.*;
 import com.example.demo.dto.favorito.FavoritoResponse;
 import com.example.demo.dto.lista.ListaRequest;
 import com.example.demo.dto.lista.ListaResponse;
+import com.example.demo.dto.lista.MoverFavoritosRequest;
 import com.example.demo.service.ListaService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -58,6 +59,16 @@ public class ListaController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable Long id) {
         listaService.eliminar(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Mover los favoritos y eliminar la lista de origen", description = "Reasigna todos los favoritos de la lista origen a la lista destino y luego elimina la lista origen.")
+    @PostMapping("/{origenId}/mover-favoritos")
+    public ResponseEntity<Void> moverFavoritos(
+            @PathVariable Long origenId,
+            @Valid @RequestBody MoverFavoritosRequest request) {
+
+        listaService.moverFavoritosYEliminarOrigen(origenId, request.destinoId());
         return ResponseEntity.noContent().build();
     }
 }

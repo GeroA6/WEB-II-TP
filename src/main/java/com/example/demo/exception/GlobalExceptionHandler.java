@@ -63,4 +63,12 @@ public class GlobalExceptionHandler {
         problema.setTitle("Conflicto al eliminar recurso");
         return problema;
     }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ProblemDetail handleArgumentoInvalido(IllegalArgumentException ex) {
+        ProblemDetail problema = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST, ex.getMessage());
+        problema.setTitle("Solicitud inválida");
+        return problema;
+    }
 }
