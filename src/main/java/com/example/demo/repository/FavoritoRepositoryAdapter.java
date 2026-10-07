@@ -10,9 +10,11 @@ import com.example.demo.domain.Favorito;
 public class FavoritoRepositoryAdapter implements FavoritoRepository {
 
     private final FavoritoJpaRepository jpaRepository;
+    private final ListaJpaRespository listaJpaRespository;
 
-    public FavoritoRepositoryAdapter(FavoritoJpaRepository jpaRepository) {
+    public FavoritoRepositoryAdapter(FavoritoJpaRepository jpaRepository, ListaJpaRespository listaJpaRespository) {
         this.jpaRepository = jpaRepository;
+        this.listaJpaRespository = listaJpaRespository;
     }
 
     @Override
@@ -44,18 +46,24 @@ public class FavoritoRepositoryAdapter implements FavoritoRepository {
     // Métodos privados de converción (Adapter)
 
     private Favorito aDominio(FavoritoEntity entity) {
+        Long listaId = entity.getLista() != null ? entity.getLista().getId() : null;
         return new Favorito(
                 entity.getId(),
                 entity.getProductoId(),
                 entity.getNota(),
-                entity.getFechaAlta());
+                entity.getFechaAlta(),
+                listaId);
     }
 
     private FavoritoEntity aEntity(Favorito dominio) {
-        return new FavoritoEntity(
+        FavoritoEntity entity = new FavoritoEntity(
                 dominio.id(),
                 dominio.productoId(),
                 dominio.nota(),
                 dominio.fechaAgregado());
+        if (dominio.listaId() != null) {
+            entity.setLista(listaJpaRespository.getReferenceById(dominio.listaId()));
+        }
+        return entity;
     }
 }
