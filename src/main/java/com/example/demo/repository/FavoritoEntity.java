@@ -28,7 +28,7 @@ public class FavoritoEntity {
     private LocalDateTime fechaAlta;
 
     @ManyToOne(fetch = jakarta.persistence.FetchType.LAZY)
-    @jakarta.persistence.JoinColumn(name = "lista_id")
+    @jakarta.persistence.JoinColumn(name = "lista_id", nullable = false)
     private ListaEntity lista;
 
     // Constructor vacío obligatorio para JPA / Hibernate

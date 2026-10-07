@@ -93,3 +93,19 @@ Incluye pruebas para:
    - La implementación `InMemoryFavoritoRepository` utiliza `ConcurrentHashMap` y `AtomicLong` para garantizar consistencia ante múltiples peticiones concurrentes en Tomcat.
 3. **Manejo Centralizado de Excepciones:**
    - Mediante `@RestControllerAdvice` (`GlobalExceptionHandler`), todos los errores se traducen a respuestas estándar bajo la especificación **ProblemDetail (RFC 7807)** con código de estado, título y detalle.
+
+---
+
+## Persistencia y Evolución del Esquema (Flyway)
+
+### ¿Por qué se resolvió con una nueva migración (V4) y no modificando V3?
+En la Consigna 6, la conversión de `lista_id` en una columna obligatoria (`NOT NULL`) y el saneamiento de datos existentes se implementaron creando la migración `V4__lista_id_obligatorio.sql` en lugar de alterar `V3__add_lista_id_a_favoritos.sql`. Esto responde a principios fundamentales de gestión de bases de datos en producción:
+
+1. **Inmutabilidad y validación de Checksums en Flyway:**
+   Flyway almacena en la tabla de metadatos `flyway_schema_history` una suma de comprobación (checksum) por cada script ejecutado. Si modificamos un archivo ya aplicado como `V3`, Flyway detectará una disparidad en el checksum al iniciar la aplicación y abortará el arranque con una excepción (`FlywayValidateException` / `MigrationChecksumException`).
+2. **Consistencia entre múltiples entornos (Local, CI/CD, Staging, Producción):**
+   En un flujo de trabajo profesional, `V3` ya pudo haberse corrido en bases de datos de otros desarrolladores o en ambientes compartidos. Flyway no vuelve a ejecutar scripts con números de versión pasados; por lo tanto, modificar `V3` dejaría a los entornos previamente migrados sin la restricción `NOT NULL`, rompiendo la paridad.
+3. **Evolución segura con migración de datos (Backfill):**
+   Las migraciones reflejan el historial cronológico del esquema. Para pasar de una columna opcional a una obligatoria en una base de datos con datos reales, es indispensable una estrategia en fases:
+   - Primero se creó como anulable en `V3`.
+   - Luego, en `V4`, se crearon los valores por defecto (`'Sin clasificar'`) y se actualizaron los registros huérfanos antes de imponer la restricción física `ALTER COLUMN lista_id SET NOT NULL`. Modificar `V3` directamente habría impedido este saneamiento progresivo en bases ya pobladas.
