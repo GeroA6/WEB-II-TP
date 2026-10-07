@@ -7,6 +7,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 @Entity
@@ -25,6 +26,10 @@ public class FavoritoEntity {
 
     @Column(name = "fecha_alta", nullable = false)
     private LocalDateTime fechaAlta;
+
+    @ManyToOne(fetch = jakarta.persistence.FetchType.LAZY)
+    @jakarta.persistence.JoinColumn(name = "lista_id")
+    private ListaEntity lista;
 
     // Constructor vacío obligatorio para JPA / Hibernate
     public FavoritoEntity() {
@@ -69,6 +74,14 @@ public class FavoritoEntity {
 
     public void setFechaAlta(LocalDateTime fechaAlta) {
         this.fechaAlta = fechaAlta;
+    }
+
+    public ListaEntity getLista() {
+        return lista;
+    }
+
+    public void setLista(ListaEntity lista) {
+        this.lista = lista;
     }
 
 }

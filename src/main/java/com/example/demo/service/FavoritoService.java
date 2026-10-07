@@ -37,7 +37,8 @@ public class FavoritoService {
                 null,
                 request.productoId(),
                 request.nota(),
-                LocalDateTime.now());
+                LocalDateTime.now(),
+                request.listaId());
         Favorito guardado = favoritoRepository.save(nuevoFavorito);
         return aResponse(guardado);
     }
@@ -50,7 +51,8 @@ public class FavoritoService {
                 existente.id(),
                 request.productoId(),
                 request.nota(),
-                existente.fechaAgregado());
+                existente.fechaAgregado(),
+                request.listaId());
         Favorito guardado = favoritoRepository.save(actualizado);
         return aResponse(guardado);
     }
@@ -71,7 +73,8 @@ public class FavoritoService {
                 favorito.id(),
                 favorito.productoId(),
                 favorito.nota(),
-                favorito.fechaAgregado());
+                favorito.fechaAgregado(),
+                favorito.listaId());
     }
 
 }
