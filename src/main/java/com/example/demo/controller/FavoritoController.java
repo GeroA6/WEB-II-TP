@@ -23,7 +23,7 @@ import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("api/favoritos")
-@Tag(name = "favoritos", description = "CRUD de favoritos en memoria")
+@Tag(name = "favoritos", description = "CRUD de favoritos persistidos en PostgreSQL")
 public class FavoritoController {
 
     private final FavoritoService favoritoService;

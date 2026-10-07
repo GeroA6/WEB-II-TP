@@ -1,6 +1,14 @@
 ### Variables globales
 @baseUrl = http://localhost:8080
 
+# En una base recién migrada, V4 crea "Sin clasificar" con ID 1.
+# Las dos listas creadas en la sección LISTAS reciben los IDs 2 y 3.
+# Ajustar estos valores si la base ya contiene datos.
+@listaPredeterminadaId = 1
+@listaOrigenId = 2
+@listaDestinoId = 3
+@listaVaciaId = 4
+
 ### ==============================================================================
 ### CHEQUEOS BÁSICOS
 ### ==============================================================================
@@ -25,7 +33,7 @@ GET {{baseUrl}}/api/productos/1
 GET {{baseUrl}}/api/productos/99999
 
 ### ==============================================================================
-### FAVORITOS (CRUD en memoria)
+### FAVORITOS (CRUD persistido)
 ### ==============================================================================
 
 ### [Éxito - 201] Crear un nuevo favorito (devuelve 201 y header Location)
@@ -34,7 +42,8 @@ Content-Type: application/json
 
 {
   "productoId": 1,
-  "nota": "Excelente calidad y precio recomendado"
+  "nota": "Excelente calidad y precio recomendado",
+  "listaId": {{listaPredeterminadaId}}
 }
 
 ### [Éxito - 200] Listar todos los favoritos guardados
@@ -49,7 +58,8 @@ Content-Type: application/json
 
 {
   "productoId": 1,
-  "nota": "Nota actualizada: comprar 2 unidades"
+  "nota": "Nota actualizada: comprar 2 unidades",
+  "listaId": {{listaPredeterminadaId}}
 }
 
 ### [Éxito - 204] Eliminar un favorito existente
@@ -64,7 +74,8 @@ Content-Type: application/json
 
 {
   "productoId": null,
-  "nota": "   "
+  "nota": "   ",
+  "listaId": null
 }
 
 ### [Error - 404] Intentar actualizar un favorito que no existe
@@ -73,8 +84,77 @@ Content-Type: application/json
 
 {
   "productoId": 1,
-  "nota": "No existe"
+  "nota": "No existe",
+  "listaId": {{listaPredeterminadaId}}
 }
 
 ### [Error - 404] Intentar eliminar un favorito que no existe
 DELETE {{baseUrl}}/api/favoritos/999
+
+### ==============================================================================
+### LISTAS
+### Ejecutar las peticiones en orden. Ajustar las variables globales si la base ya contiene datos.
+### ==============================================================================
+
+### [Éxito - 201] Crear lista de origen
+POST {{baseUrl}}/api/listas
+Content-Type: application/json
+
+{
+  "nombre": "Ofertas"
+}
+
+### [Éxito - 201] Crear lista de destino
+POST {{baseUrl}}/api/listas
+Content-Type: application/json
+
+{
+  "nombre": "Regalos"
+}
+
+### [Éxito - 200] Listar todas las listas
+GET {{baseUrl}}/api/listas
+
+### [Éxito - 200] Obtener una lista por ID
+GET {{baseUrl}}/api/listas/{{listaOrigenId}}
+
+### [Preparación] Crear una lista vacía para probar su eliminación
+POST {{baseUrl}}/api/listas
+Content-Type: application/json
+
+{
+  "nombre": "Temporal"
+}
+
+### [Éxito - 204] Eliminar una lista vacía
+DELETE {{baseUrl}}/api/listas/{{listaVaciaId}}
+
+### [Preparación] Crear un favorito en la lista de origen
+POST {{baseUrl}}/api/favoritos
+Content-Type: application/json
+
+{
+  "productoId": 2,
+  "nota": "Favorito para probar el traslado",
+  "listaId": {{listaOrigenId}}
+}
+
+### [Éxito - 200] Obtener los favoritos de una lista
+GET {{baseUrl}}/api/listas/{{listaOrigenId}}/favoritos
+
+### [Error - 409] Intentar eliminar una lista que todavía tiene favoritos
+DELETE {{baseUrl}}/api/listas/{{listaOrigenId}}
+
+### [Éxito - 204] Mover favoritos a la lista destino y eliminar la lista origen
+POST {{baseUrl}}/api/listas/{{listaOrigenId}}/mover-favoritos
+Content-Type: application/json
+
+{
+  "destinoId": {{listaDestinoId}}
+}
+
+### [Error - 404] La lista de origen fue eliminada
+GET {{baseUrl}}/api/listas/{{listaOrigenId}}
+
+### [Éxito - 200] Los favoritos ahora pertenecen a la lista destino
+GET {{baseUrl}}/api/listas/{{listaDestinoId}}/favoritos

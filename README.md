@@ -1,13 +1,21 @@
-# TP1 · Spring Boot, API REST y arquitectura en capas
+# TP2 · Persistencia, migraciones y arquitectura hexagonal
 
-Resolución del Trabajo Práctico 1 para la materia **Web II**.  
-El proyecto implementa una API REST modular construida sobre **Spring Boot 4.1.x** y **Java 25**, aplicando una arquitectura en capas (**Controller → Service → Repository / Client**), desacoplamiento mediante DTOs, validación con Bean Validation, manejo centralizado de errores (`ProblemDetail` RFC 7807) y documentación con Swagger / OpenAPI.
+Resolución del Trabajo Práctico 2 para la materia **Web II**. El proyecto implementa una API REST con **Spring Boot 4.1.x**, **Java 25**, **PostgreSQL**, Spring Data JPA y Flyway. Aplica puertos y adaptadores para persistir favoritos, permite organizarlos en listas y documenta la API con Swagger / OpenAPI.
 
 ---
 
-## Cómo levantar el proyecto
+## Requisitos y cómo levantar el proyecto
 
-Requiere Java 25. Usar siempre el wrapper de Maven (`mvnw`):
+Se requiere Java 25 y PostgreSQL en `localhost:5432`. Crear la base y el usuario una única vez:
+
+```sql
+CREATE USER webii_tp2 WITH PASSWORD 'webii_tp2';
+CREATE DATABASE webii_tp2 OWNER webii_tp2;
+```
+
+La configuración se encuentra en `src/main/resources/application.properties`. Hibernate valida el esquema existente (`ddl-auto=validate`) y Flyway aplica las migraciones al iniciar la aplicación.
+
+Usar siempre el wrapper de Maven (`mvnw`):
 
 ```bash
 # Windows
@@ -38,9 +46,10 @@ Una vez levantada la aplicación, podés consultar y probar todos los endpoints 
 **[http://localhost:8080/swagger-ui/index.html](http://localhost:8080/swagger-ui/index.html)**  
 *(o alternativamente `http://localhost:8080/swagger-ui.html`)*
 
-La documentación organiza los endpoints en dos grupos principales mediante `@Tag`:
+La documentación organiza los endpoints mediante `@Tag`:
 - `productos`: Catálogo de solo lectura que consume una API externa.
-- `favoritos`: Recurso propio con CRUD completo en memoria.
+- `favoritos`: Recurso propio persistido en PostgreSQL.
+- `listas`: Recurso para agrupar favoritos y ejecutar el traslado transaccional.
 
 ---
 
@@ -58,14 +67,24 @@ La documentación organiza los endpoints en dos grupos principales mediante `@Ta
 | GET | `/api/productos` | Lista todos los productos mapeados a `ProductoDTO` | 200 OK |
 | GET | `/api/productos/{id}` | Obtiene un producto por su ID | 200 OK / 404 Not Found |
 
-### 3. Favoritos (CRUD propio en memoria)
+### 3. Favoritos (CRUD persistido)
 | Método | Path | Qué hace | Códigos HTTP |
 |---|---|---|---|
-| POST | `/api/favoritos` | Crea un favorito (valida campos obligatorios) | 201 Created (+ Location) / 400 Bad Request |
+| POST | `/api/favoritos` | Crea un favorito asociado a una lista | 201 Created (+ Location) / 400 Bad Request / 404 Not Found |
 | GET | `/api/favoritos` | Lista todos los favoritos | 200 OK |
 | GET | `/api/favoritos/{id}` | Obtiene un favorito por su ID | 200 OK / 404 Not Found |
 | PUT | `/api/favoritos/{id}` | Actualiza un favorito (conserva `fechaAgregado`) | 200 OK / 400 Bad Request / 404 Not Found |
 | DELETE | `/api/favoritos/{id}` | Elimina un favorito por su ID | 204 No Content / 404 Not Found |
+
+### 4. Listas de favoritos
+| Método | Path | Qué hace | Códigos HTTP |
+|---|---|---|---|
+| POST | `/api/listas` | Crea una lista | 201 Created (+ Location) / 400 Bad Request |
+| GET | `/api/listas` | Lista todas las listas | 200 OK |
+| GET | `/api/listas/{id}` | Obtiene una lista por su ID | 200 OK / 404 Not Found |
+| GET | `/api/listas/{id}/favoritos` | Lista los favoritos asociados | 200 OK / 404 Not Found |
+| DELETE | `/api/listas/{id}` | Elimina una lista vacía | 204 No Content / 404 Not Found / 409 Conflict |
+| POST | `/api/listas/{origenId}/mover-favoritos` | Mueve los favoritos al destino y elimina el origen | 204 No Content / 400 Bad Request / 404 Not Found |
 
 ---
 
@@ -76,11 +95,13 @@ En la raíz del proyecto se incluye el archivo `requests.http`, que contiene pet
 Incluye pruebas para:
 - **Casos de éxito:**
   - Consumo y mapeo de productos.
-  - Creación de favorito con retorno de `201 Created` y cabecera `Location`.
+  - CRUD de listas y creación de favoritos asociados a una lista.
   - Lectura, actualización y eliminación de favoritos.
+  - Obtención de favoritos por lista y traslado transaccional entre listas.
 - **Casos de error:**
   - `404 Not Found`: Búsqueda, actualización o eliminación de IDs inexistentes (en productos y favoritos).
   - `400 Bad Request`: Validación fallida al enviar campos en blanco o nulos en `FavoritoRequest`.
+  - `409 Conflict`: Intento de eliminar una lista que todavía posee favoritos.
 
 ---
 
@@ -89,8 +110,10 @@ Incluye pruebas para:
 1. **Desacoplamiento con DTOs (`records`):**
    - La API no expone el modelo tal cual lo devuelve DummyJSON (`DummyJsonProducto`), sino un DTO propio (`ProductoDTO`).
    - Para favoritos se separó la entrada (`FavoritoRequest`, con validaciones `@NotNull` y `@NotBlank`) de la salida (`FavoritoResponse`), protegiendo la inmutabilidad y evitando manipulación indebida de `id` o `fechaAgregado`.
-2. **Repositorio en Memoria Thread-Safe:**
-   - La implementación `InMemoryFavoritoRepository` utiliza `ConcurrentHashMap` y `AtomicLong` para garantizar consistencia ante múltiples peticiones concurrentes en Tomcat.
+2. **Puertos y adaptadores para favoritos:**
+   - `FavoritoRepository` es el puerto: define el contrato que necesita el dominio para guardar, consultar, actualizar y eliminar favoritos.
+   - `FavoritoService` depende de ese contrato, no de una tecnología de persistencia concreta. Por eso no cambió al reemplazar la implementación en memoria por `FavoritoRepositoryAdapter`.
+   - El adapter JPA transforma entre `Favorito` (record inmutable del dominio) y `FavoritoEntity` (entidad mutable que Hibernate puede administrar). Así, los detalles de JPA y PostgreSQL permanecen fuera del dominio.
 3. **Manejo Centralizado de Excepciones:**
    - Mediante `@RestControllerAdvice` (`GlobalExceptionHandler`), todos los errores se traducen a respuestas estándar bajo la especificación **ProblemDetail (RFC 7807)** con código de estado, título y detalle.
 
