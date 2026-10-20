@@ -79,4 +79,11 @@ public class GlobalExceptionHandler {
         problem.setTitle("Conflicto de registro");
         return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
     }
+
+    @ExceptionHandler(CredencialesInvalidasException.class)
+    public ResponseEntity<ProblemDetail> manejarCredencialesInvalidas(CredencialesInvalidasException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, ex.getMessage());
+        problem.setTitle("Credenciales inválidas");
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(problem);
+    }
 }
