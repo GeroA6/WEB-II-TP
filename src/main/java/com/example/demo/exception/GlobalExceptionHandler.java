@@ -2,6 +2,7 @@ package com.example.demo.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -70,5 +71,12 @@ public class GlobalExceptionHandler {
                 HttpStatus.BAD_REQUEST, ex.getMessage());
         problema.setTitle("Solicitud inválida");
         return problema;
+    }
+
+    @ExceptionHandler(EmailDuplicadoException.class)
+    public ResponseEntity<ProblemDetail> manejarEmailDuplicado(EmailDuplicadoException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        problem.setTitle("Conflicto de registro");
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
     }
 }
