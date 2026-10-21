@@ -8,12 +8,21 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+import com.example.demo.security.JwtAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
-    @Bean 
+    private final JwtAuthenticationFilter jwtAuthenticationFilterM;
+
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilterM) {
+        this.jwtAuthenticationFilterM = jwtAuthenticationFilterM;
+    }
+
+    @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
@@ -24,17 +33,17 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                    .requestMatchers(
-                        "/api/auth/**",
-                        "/api/productos/**",
-                        "/swagger-ui/**",
-                        "/swagger-ui.html",
-                        "/v3/api-docs/**",
-                        "/health",
-                        "/ping"
-                    ).permitAll()
-                .anyRequest().authenticated()
-            )
-            .build();   
+                        .requestMatchers(
+                                "/api/auth/**",
+                                "/api/productos/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/v3/api-docs/**",
+                                "/health",
+                                "/ping")
+                        .permitAll()
+                        .anyRequest().authenticated())
+                .addFilterBefore(jwtAuthenticationFilterM, UsernamePasswordAuthenticationFilter.class)
+                .build();
     }
 }
