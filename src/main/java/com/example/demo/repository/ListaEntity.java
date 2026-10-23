@@ -1,10 +1,13 @@
 package com.example.demo.repository;
 
+import org.hibernate.annotations.ManyToAny;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 @Entity
@@ -17,6 +20,10 @@ public class ListaEntity {
 
     @Column(name = "nombre", nullable = false)
     private String nombre;
+
+    @ManyToOne(fetch = jakarta.persistence.FetchType.LAZY)
+    @jakarta.persistence.JoinColumn(name = "usuario_id")
+    private UsuarioEntity usuario;
 
     public ListaEntity() {
     }
@@ -41,4 +48,13 @@ public class ListaEntity {
     public void setNombre(String nombre) {
         this.nombre = nombre;
     }
+
+    public UsuarioEntity getUsuario() {
+        return usuario;
+    }
+
+    public void setUsuario(UsuarioEntity usuario) {
+        this.usuario = usuario;
+    }
+
 }

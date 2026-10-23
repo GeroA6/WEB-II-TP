@@ -9,6 +9,8 @@ public interface ListaRepository {
 
     List<Lista> findAll();
 
+    List<Lista> findByUsuarioId(Long usuarioId);
+    
     Optional<Lista> findById(Long id);
 
     Lista save(Lista lista);
