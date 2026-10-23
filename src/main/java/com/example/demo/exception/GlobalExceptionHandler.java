@@ -86,4 +86,11 @@ public class GlobalExceptionHandler {
         problem.setTitle("Credenciales inválidas");
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(problem);
     }
+
+    @ExceptionHandler(AccesoDenegadoException.class)
+    public ResponseEntity<ProblemDetail> manejarAccesoDenegado(AccesoDenegadoException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
+        problem.setTitle("Acceso denegado");
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(problem);
+    }
 }
