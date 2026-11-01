@@ -1,0 +1,37 @@
+services:
+  # Servicio 1: Base de datos PostgreSQL en contenedor
+  postgres-db:
+    image: postgres:16-alpine
+    container_name: postgres-db-tp3
+    environment:
+      POSTGRES_DB: webii_tp2
+      POSTGRES_USER: webii_tp2
+      POSTGRES_PASSWORD: webii_tp2
+    ports:
+      - "5433:5432" # Lo expongo en 5433 para no pisar el Postgres local
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U webii_tp2 -d webii_tp2" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Servicio 2: La aplicacion Spring Boot en contenedor
+  app:
+    build: .
+    container_name: webii-tp3-app
+    depends_on:
+      postgres-db:
+        condition: service_healthy # Espera a que PostgreSQL este al 100% antes de arrancar
+    environment:
+      DB_URL: jdbc:postgresql://postgres-db:5432/webii_tp2
+      DB_USERNAME: webii_tp2
+      DB_PASSWORD: webii_tp2
+      JWT_SECRET: EstaEsUnaClaveSecretaMuyLargaYSeguraParaFirmarLosTokensJWTDelTP3
+      JWT_EXPIRACION_MS: 86400000
+    ports:
+      - "8080:8080"
+
+volumes:
+  pgdata: # Volumen para que los datos de la base no se borren al apagar el contenedor
