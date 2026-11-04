@@ -13,6 +13,8 @@ jobs:
     steps:
       - name: Clonar el repositorio
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Le dice a git que traiga todo el historial (necesario para que Sonar calcule autoría y fechas)
 
       - name: Configurar JDK 25
         uses: actions/setup-java@v4
@@ -26,3 +28,9 @@ jobs:
 
       - name: Ejecutar pruebas unitarias y de integración (Suregire + Failsafe + Testcontainers)
         run: ./mvnw -B verify
+      
+      - name: Analizar código con SonarCloud
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Proporcionado automáticamente por GitHub
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}   # El secret que cree en SonarQube
+        run: ./mvnw -B org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=GeroA6_WEB-II-TP -Dsonar.organization=geroa6 -Dsonar.host.url=https://sonarcloud.io
