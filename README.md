@@ -1,8 +1,20 @@
 # TP3 · Seguridad, pruebas e integración continua
 
 [![CI - Integración Continua](https://github.com/GeroA6/WEB-II-TP/actions/workflows/ci.yml/badge.svg?branch=TP3)](https://github.com/GeroA6/WEB-II-TP/actions/workflows/ci.yml)
+[![Quality gate status](https://sonarcloud.io/api/project_badges/measure?project=GeroA6_WEB-II-TP&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=GeroA6_WEB-II-TP&branch=TP3)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=GeroA6_WEB-II-TP&metric=coverage)](https://sonarcloud.io/summary/new_code?id=GeroA6_WEB-II-TP&branch=TP3)
 
 Resolución del Trabajo Práctico 3 para la materia **Web II** (UNVIME). El proyecto evoluciona la API REST del TP2 incorporando autenticación sin estado mediante **JWT**, control de acceso y autorización fina por **propiedad de recursos** y jerarquía de roles (`USER` y `ADMIN`), suite de pruebas automatizadas con **Mockito** y **Testcontainers**, pipeline de **CI en GitHub Actions**, dockerización multi-etapa y despliegue en la nube en **Render**.
+
+---
+
+## Enlaces Rápidos y Accesos Públicos
+
+* **Despliegue en Producción (Render):** [https://webii-tp3-app.onrender.com/](https://webii-tp3-app.onrender.com/)
+* **Health Check en Vivo:** [https://webii-tp3-app.onrender.com/health](https://webii-tp3-app.onrender.com/health)
+* **Documentación Interactiva (Swagger UI):** [https://webii-tp3-app.onrender.com/swagger-ui/index.html](https://webii-tp3-app.onrender.com/swagger-ui/index.html)
+* **SonarCloud Dashboard (Rama TP3):** [https://sonarcloud.io/summary/new_code?id=GeroA6_WEB-II-TP&branch=TP3](https://sonarcloud.io/summary/new_code?id=GeroA6_WEB-II-TP&branch=TP3)
+* **SonarCloud Overview (Métricas completas):** [https://sonarcloud.io/project/overview?id=GeroA6_WEB-II-TP&branch=TP3](https://sonarcloud.io/project/overview?id=GeroA6_WEB-II-TP&branch=TP3)
 
 ---
 
@@ -79,6 +91,16 @@ Comando para correr la suite completa (unitarias + integración):
 # Linux / macOS
 ./mvnw verify
 ```
+
+### 3. Reporte de Cobertura con JaCoCo
+El plugin `jacoco-maven-plugin` (versión 0.8.14 compatible con Java 25) genera métricas de cobertura al ejecutar la fase de verificación:
+* **Reporte HTML interactivo local:** generado en `target/site/jacoco/index.html`.
+* Para abrirlo en el navegador:
+  ```powershell
+  # Windows
+  start target\site\jacoco\index.html
+  ```
+* **Integración con SonarCloud:** genera además `target/site/jacoco/jacoco.xml`, el cual es consumido por el pipeline de CI para alimentar el dashboard en la nube.
 
 ---
 
