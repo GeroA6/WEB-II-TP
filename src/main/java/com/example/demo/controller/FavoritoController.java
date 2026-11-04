@@ -23,7 +23,7 @@ import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("api/favoritos")
-@Tag(name = "favoritos", description = "CRUD de favoritos persistidos en PostgreSQL")
+@Tag(name = "favoritos", description = "CRUD de favoritos persistidos en PostgreSQL (Requiere autenticación Bearer JWT)")
 public class FavoritoController {
 
     private final FavoritoService favoritoService;

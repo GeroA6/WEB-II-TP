@@ -19,8 +19,7 @@ import java.util.List;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/api/listas")
-@Tag(name = "listas", description = "Gestion de listas de favoritos")
+@RequestMapping("/api/listas")@Tag(name = "listas", description = "Gestión de listas de favoritos con control de propiedad y roles (Requiere autenticación Bearer JWT)")
 public class ListaController {
 
     private final ListaService listaService;

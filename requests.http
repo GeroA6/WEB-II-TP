@@ -1,16 +1,16 @@
 ### Variables globales
+# Descomentar la que se desee utilizar:
 @baseUrl = http://localhost:8080
+# @baseUrl = https://webii-tp3-app.onrender.com
 
-# En una base recién migrada, V4 crea "Sin clasificar" con ID 1.
-# Las dos listas creadas en la sección LISTAS reciben los IDs 2 y 3.
-# Ajustar estos valores si la base ya contiene datos.
+### Variables de prueba
 @listaPredeterminadaId = 1
 @listaOrigenId = 2
 @listaDestinoId = 3
 @listaVaciaId = 4
 
 ### ==============================================================================
-### CHEQUEOS BÁSICOS
+### CHEQUEOS BÁSICOS (Públicos)
 ### ==============================================================================
 
 ### Health check
@@ -20,7 +20,7 @@ GET {{baseUrl}}/health
 GET {{baseUrl}}/ping
 
 ### ==============================================================================
-### CATÁLOGO DE PRODUCTOS (Consumo de DummyJSON)
+### CATÁLOGO DE PRODUCTOS (Consumo de DummyJSON - Público)
 ### ==============================================================================
 
 ### [Éxito] Obtener todos los productos mapeados a ProductoDTO
@@ -33,128 +33,143 @@ GET {{baseUrl}}/api/productos/1
 GET {{baseUrl}}/api/productos/99999
 
 ### ==============================================================================
-### FAVORITOS (CRUD persistido)
+### AUTENTICACIÓN Y SEGURIDAD (TP3)
 ### ==============================================================================
 
-### [Éxito - 201] Crear un nuevo favorito (devuelve 201 y header Location)
-POST {{baseUrl}}/api/favoritos
+### [Éxito - 201] Registro de un nuevo usuario (rol USER por defecto, password hasheada)
+# @name registro
+POST {{baseUrl}}/api/auth/registro
 Content-Type: application/json
 
 {
-  "productoId": 1,
-  "nota": "Excelente calidad y precio recomendado",
-  "listaId": {{listaPredeterminadaId}}
+  "email": "estudiante@unvime.edu.ar",
+  "password": "PasswordSeguro123"
 }
 
-### [Éxito - 200] Listar todos los favoritos guardados
-GET {{baseUrl}}/api/favoritos
-
-### [Éxito - 200] Obtener un favorito por su ID
-GET {{baseUrl}}/api/favoritos/1
-
-### [Éxito - 200] Actualizar un favorito existente (conserva la fecha original)
-PUT {{baseUrl}}/api/favoritos/1
+### [Error - 409] Registro con email duplicado
+POST {{baseUrl}}/api/auth/registro
 Content-Type: application/json
 
 {
-  "productoId": 1,
-  "nota": "Nota actualizada: comprar 2 unidades",
-  "listaId": {{listaPredeterminadaId}}
+  "email": "estudiante@unvime.edu.ar",
+  "password": "OtraPassword123"
 }
 
-### [Éxito - 204] Eliminar un favorito existente
-DELETE {{baseUrl}}/api/favoritos/1
-
-### [Error - 404] Intentar obtener un favorito eliminado o inexistente
-GET {{baseUrl}}/api/favoritos/1
-
-### [Error - 400] Validación fallida al crear (campos requeridos ausentes o vacíos)
-POST {{baseUrl}}/api/favoritos
+### [Error - 400] Registro con validación fallida (email inválido o password corta)
+POST {{baseUrl}}/api/auth/registro
 Content-Type: application/json
 
 {
-  "productoId": null,
-  "nota": "   ",
-  "listaId": null
+  "email": "correo-invalido",
+  "password": "123"
 }
 
-### [Error - 404] Intentar actualizar un favorito que no existe
-PUT {{baseUrl}}/api/favoritos/999
+### [Éxito - 200] Iniciar sesión (Login) y obtener JWT
+# Al ejecutar este request, la variable @authToken guarda automáticamente el token
+# @name login
+POST {{baseUrl}}/api/auth/login
 Content-Type: application/json
 
 {
-  "productoId": 1,
-  "nota": "No existe",
-  "listaId": {{listaPredeterminadaId}}
+  "email": "estudiante@unvime.edu.ar",
+  "password": "PasswordSeguro123"
 }
 
-### [Error - 404] Intentar eliminar un favorito que no existe
-DELETE {{baseUrl}}/api/favoritos/999
+### Guardamos el token obtenido del login en una variable para las peticiones protegidas
+@authToken = {{login.response.body.token}}
+
+### [Error - 401] Login con credenciales inválidas (password incorrecta)
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "estudiante@unvime.edu.ar",
+  "password": "PasswordEquivocada"
+}
 
 ### ==============================================================================
-### LISTAS
-### Ejecutar las peticiones en orden. Ajustar las variables globales si la base ya contiene datos.
+### AUTORIZACIÓN Y LISTAS (TP3 - Requiere Bearer JWT)
 ### ==============================================================================
 
-### [Éxito - 201] Crear lista de origen
-POST {{baseUrl}}/api/listas
-Content-Type: application/json
-
-{
-  "nombre": "Ofertas"
-}
-
-### [Éxito - 201] Crear lista de destino
-POST {{baseUrl}}/api/listas
-Content-Type: application/json
-
-{
-  "nombre": "Regalos"
-}
-
-### [Éxito - 200] Listar todas las listas
+### [Error - 401] Acceder a /api/listas sin token
 GET {{baseUrl}}/api/listas
 
-### [Éxito - 200] Obtener una lista por ID
-GET {{baseUrl}}/api/listas/{{listaOrigenId}}
+### [Éxito - 200] Listar listas del usuario autenticado (con Bearer Token)
+GET {{baseUrl}}/api/listas
+Authorization: Bearer {{authToken}}
 
-### [Preparación] Crear una lista vacía para probar su eliminación
+### [Éxito - 201] Crear una nueva lista (el dueño se asigna automáticamente del token)
+# @name crearLista
 POST {{baseUrl}}/api/listas
+Authorization: Bearer {{authToken}}
 Content-Type: application/json
 
 {
-  "nombre": "Temporal"
+  "nombre": "Mis Artículos de Estudio"
 }
 
-### [Éxito - 204] Eliminar una lista vacía
-DELETE {{baseUrl}}/api/listas/{{listaVaciaId}}
+### Variable con el ID de la lista creada recientemente
+@miListaId = {{crearLista.response.body.id}}
 
-### [Preparación] Crear un favorito en la lista de origen
+### [Éxito - 200] Obtener mi lista por su ID
+GET {{baseUrl}}/api/listas/{{miListaId}}
+Authorization: Bearer {{authToken}}
+
+### [Error - 403] Intentar acceder a una lista ajena con otro usuario
+# Si accedes a una lista que pertenece a otro usuario y no eres ADMIN, devuelve 403 Forbidden
+GET {{baseUrl}}/api/listas/999
+Authorization: Bearer {{authToken}}
+
+### [Error - 404] Obtener una lista que no existe en el sistema
+GET {{baseUrl}}/api/listas/999999
+Authorization: Bearer {{authToken}}
+
+### [Éxito - 200] Obtener favoritos de mi lista
+GET {{baseUrl}}/api/listas/{{miListaId}}/favoritos
+Authorization: Bearer {{authToken}}
+
+### ==============================================================================
+### FAVORITOS (TP3 - Requiere Bearer JWT)
+### ==============================================================================
+
+### [Éxito - 201] Crear un nuevo favorito en mi lista
+# @name crearFavorito
 POST {{baseUrl}}/api/favoritos
+Authorization: Bearer {{authToken}}
 Content-Type: application/json
 
 {
-  "productoId": 2,
-  "nota": "Favorito para probar el traslado",
-  "listaId": {{listaOrigenId}}
+  "productoId": 1,
+  "nota": "Excelente calidad de pantalla y batería",
+  "listaId": {{miListaId}}
 }
 
-### [Éxito - 200] Obtener los favoritos de una lista
-GET {{baseUrl}}/api/listas/{{listaOrigenId}}/favoritos
+@miFavoritoId = {{crearFavorito.response.body.id}}
 
-### [Error - 409] Intentar eliminar una lista que todavía tiene favoritos
-DELETE {{baseUrl}}/api/listas/{{listaOrigenId}}
+### [Éxito - 200] Listar todos los favoritos
+GET {{baseUrl}}/api/favoritos
+Authorization: Bearer {{authToken}}
 
-### [Éxito - 204] Mover favoritos a la lista destino y eliminar la lista origen
-POST {{baseUrl}}/api/listas/{{listaOrigenId}}/mover-favoritos
+### [Éxito - 200] Obtener un favorito por su ID
+GET {{baseUrl}}/api/favoritos/{{miFavoritoId}}
+Authorization: Bearer {{authToken}}
+
+### [Éxito - 200] Actualizar un favorito
+PUT {{baseUrl}}/api/favoritos/{{miFavoritoId}}
+Authorization: Bearer {{authToken}}
 Content-Type: application/json
 
 {
-  "destinoId": {{listaDestinoId}}
+  "productoId": 1,
+  "nota": "Nota actualizada: Muy recomendado",
+  "listaId": {{miListaId}}
 }
 
-### [Error - 404] La lista de origen fue eliminada
-GET {{baseUrl}}/api/listas/{{listaOrigenId}}
+### [Éxito - 204] Eliminar un favorito por ID
+DELETE {{baseUrl}}/api/favoritos/{{miFavoritoId}}
+Authorization: Bearer {{authToken}}
 
-### [Éxito - 200] Los favoritos ahora pertenecen a la lista destino
-GET {{baseUrl}}/api/listas/{{listaDestinoId}}/favoritos
+### [Error - 409] Intentar eliminar una lista que todavía contiene favoritos
+# Si una lista tiene favoritos asociados, responde 409 Conflict (regla del TP2 preservada)
+DELETE {{baseUrl}}/api/listas/{{miListaId}}
+Authorization: Bearer {{authToken}}

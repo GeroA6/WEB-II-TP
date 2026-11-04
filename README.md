@@ -1,159 +1,147 @@
-# TP2 · Persistencia, migraciones y arquitectura hexagonal
+# TP3 · Seguridad, pruebas e integración continua
 
-Resolución del Trabajo Práctico 2 para la materia **Web II**. El proyecto implementa una API REST con **Spring Boot 4.1.x**, **Java 25**, **PostgreSQL**, Spring Data JPA y Flyway. Aplica puertos y adaptadores para persistir favoritos, permite organizarlos en listas y documenta la API con Swagger / OpenAPI.
+[![CI - Integración Continua](https://github.com/GeroA6/WEB-II-TP/actions/workflows/ci.yml/badge.svg?branch=TP3)](https://github.com/GeroA6/WEB-II-TP/actions/workflows/ci.yml)
+
+Resolución del Trabajo Práctico 3 para la materia **Web II** (UNVIME). El proyecto evoluciona la API REST del TP2 incorporando autenticación sin estado mediante **JWT**, control de acceso y autorización fina por **propiedad de recursos** y jerarquía de roles (`USER` y `ADMIN`), suite de pruebas automatizadas con **Mockito** y **Testcontainers**, pipeline de **CI en GitHub Actions**, dockerización multi-etapa y despliegue en la nube en **Render**.
 
 ---
 
-## Requisitos y cómo levantar el proyecto
+## Despliegue en Producción (Render)
 
-Se requiere Java 25 y PostgreSQL en `localhost:5432`. Crear la base y el usuario una única vez:
+La aplicación se encuentra desplegada y operativa en **Render** conectada mediante red interna privada a una base de datos PostgreSQL gestionada:
 
-```sql
-CREATE USER webii_tp2 WITH PASSWORD 'webii_tp2';
-CREATE DATABASE webii_tp2 OWNER webii_tp2;
-```
+* **URL Pública de la API:** [https://webii-tp3-app.onrender.com/](https://webii-tp3-app.onrender.com/)
+* **Health Check:** [https://webii-tp3-app.onrender.com/health](https://webii-tp3-app.onrender.com/health)
+* **Documentación interactiva (Swagger UI):** [https://webii-tp3-app.onrender.com/swagger-ui/index.html](https://webii-tp3-app.onrender.com/swagger-ui/index.html)
 
-La configuración se encuentra en `src/main/resources/application.properties`. Hibernate valida el esquema existente (`ddl-auto=validate`) y Flyway aplica las migraciones al iniciar la aplicación.
+### Evidencia del Despliegue en Render
 
-Usar siempre el wrapper de Maven (`mvnw`):
+A continuación se presentan las capturas organizadas por flujo de verificación (almacenadas en la carpeta [`Evidencia/`](./Evidencia)):
 
+#### 1. Verificación de Salud (`GET /health`) y Documentación Swagger
+| Health Check (`200 OK - UP`) | Swagger UI en Producción |
+|:---:|:---:|
+| ![Health Check](./Evidencia/Captura%20de%20pantalla%20health.png) | ![Swagger UI](./Evidencia/Captura%20de%20pantalla%20swagger.png) |
+
+#### 2. Registro de Usuario (`POST /api/auth/registro`)
+| Request de Registro | Respuesta `201 Created` con hash BCrypt |
+|:---:|:---:|
+| ![Registro Request](./Evidencia/Captura%20de%20pantalla%20registrar1.png) | ![Registro Response](./Evidencia/Captura%20de%20pantalla%20registrar2.png) |
+
+#### 3. Autenticación y Emisión de JWT (`POST /api/auth/login`)
+| Request de Login | Token JWT generado (`200 OK`) |
+|:---:|:---:|
+| ![Login Request](./Evidencia/Captura%20de%20pantalla%20login1.png) | ![Login Response](./Evidencia/Captura%20de%20pantalla%20login2.png) |
+
+#### 4. Control de Acceso: Petición sin token vs Petición Autorizada
+| Acceso Denegado sin Token (`401 Unauthorized`) | Acceso Concedido con Bearer JWT (`200 OK`) |
+|:---:|:---:|
+| ![Get Listas sin token 401](./Evidencia/Captura%20de%20pantalla%20get-listas.png) | ![Get Listas con token 200](./Evidencia/Captura%20de%20pantalla%20listas%20autorizado1.png) |
+
+| Detalle de Respuesta con Token JWT |
+|:---:|
+| ![Detalle de Listas Autorizado](./Evidencia/Captura%20de%20pantalla%20listas%20autorizado2.png) |
+
+---
+
+## Cómo ejecutar las pruebas automatizadas
+
+El proyecto implementa la pirámide de pruebas separando pruebas unitarias de pruebas de integración según la convención estándar de Maven:
+
+### 1. Pruebas Unitarias (Surefire + Mockito + JUnit 5)
+Se ejecutan en memoria de forma aislada, sin levantar Spring Boot ni requerir bases de datos externas:
+* `UsuarioServiceImplTest`: Verifica que la contraseña **nunca se guarde en texto plano** (comprobando el hash de BCrypt mediante `ArgumentCaptor`) y la gestión de emails duplicados.
+* `ListaServiceTest`: Verifica que al crear una lista quede **asociada al ID del usuario autenticado** y valida el control de acceso de dueños vs rol `ADMIN`.
+
+Comando para correrlas:
 ```bash
 # Windows
-.\mvnw.cmd spring-boot:run
+.\mvnw test
 
-# macOS / Linux
-./mvnw spring-boot:run
-```
-
-Cuando el log muestre `Started DemoApplication`, la API quedará escuchando en `http://localhost:8080`.
-
-Para compilar y correr los tests:
-
-```bash
-# Windows
-.\mvnw.cmd test
-
-# macOS / Linux
+# Linux / macOS
 ./mvnw test
 ```
 
----
+### 2. Pruebas de Integración (Failsafe + Testcontainers + PostgreSQL real)
+Ubicadas en clases `*IT.java` (`AuthYAutorizacionIT`). Testcontainers levanta un contenedor efímero de PostgreSQL en Docker y Flyway aplica las migraciones `V1` a `V6` desde cero:
+* Login válido $\rightarrow$ `200 OK` con token JWT.
+* Login inválido $\rightarrow$ `401 Unauthorized`.
+* Acceso a lista propia $\rightarrow$ `200 OK`.
+* Acceso a lista ajena $\rightarrow$ `403 Forbidden`.
+* Acceso sin token $\rightarrow$ `401 Unauthorized` (vía `HttpStatusEntryPoint`).
+* Usuario `ADMIN` accediendo a lista ajena $\rightarrow$ `200 OK`.
 
-## Documentación interactiva (Swagger UI)
+Comando para correr la suite completa (unitarias + integración):
+```bash
+# Windows
+.\mvnw verify
 
-Una vez levantada la aplicación, podés consultar y probar todos los endpoints de forma interactiva en Swagger UI navegando a:
-
-**[http://localhost:8080/swagger-ui/index.html](http://localhost:8080/swagger-ui/index.html)**  
-*(o alternativamente `http://localhost:8080/swagger-ui.html`)*
-
-La documentación organiza los endpoints mediante `@Tag`:
-- `productos`: Catálogo de solo lectura que consume una API externa.
-- `favoritos`: Recurso propio persistido en PostgreSQL.
-- `listas`: Recurso para agrupar favoritos y ejecutar el traslado transaccional.
-
----
-
-## Endpoints de la API
-
-### 1. Utilidades y Health Check
-| Método | Path | Qué hace | Código HTTP |
-|---|---|---|---|
-| GET | `/health` | Chequeo de salud del servicio | 200 OK |
-| GET | `/ping` | Chequeo trivial (devuelve `pong`) | 200 OK |
-
-### 2. Catálogo de Productos (Consumo externo a DummyJSON)
-| Método | Path | Qué hace | Códigos HTTP |
-|---|---|---|---|
-| GET | `/api/productos` | Lista todos los productos mapeados a `ProductoDTO` | 200 OK |
-| GET | `/api/productos/{id}` | Obtiene un producto por su ID | 200 OK / 404 Not Found |
-
-### 3. Favoritos (CRUD persistido)
-| Método | Path | Qué hace | Códigos HTTP |
-|---|---|---|---|
-| POST | `/api/favoritos` | Crea un favorito asociado a una lista | 201 Created (+ Location) / 400 Bad Request / 404 Not Found |
-| GET | `/api/favoritos` | Lista todos los favoritos | 200 OK |
-| GET | `/api/favoritos/{id}` | Obtiene un favorito por su ID | 200 OK / 404 Not Found |
-| PUT | `/api/favoritos/{id}` | Actualiza un favorito (conserva `fechaAgregado`) | 200 OK / 400 Bad Request / 404 Not Found |
-| DELETE | `/api/favoritos/{id}` | Elimina un favorito por su ID | 204 No Content / 404 Not Found |
-
-### 4. Listas de favoritos
-| Método | Path | Qué hace | Códigos HTTP |
-|---|---|---|---|
-| POST | `/api/listas` | Crea una lista | 201 Created (+ Location) / 400 Bad Request |
-| GET | `/api/listas` | Lista todas las listas | 200 OK |
-| GET | `/api/listas/{id}` | Obtiene una lista por su ID | 200 OK / 404 Not Found |
-| GET | `/api/listas/{id}/favoritos` | Lista los favoritos asociados | 200 OK / 404 Not Found |
-| DELETE | `/api/listas/{id}` | Elimina una lista vacía | 204 No Content / 404 Not Found / 409 Conflict |
-| POST | `/api/listas/{origenId}/mover-favoritos` | Mueve los favoritos al destino y elimina el origen | 204 No Content / 400 Bad Request / 404 Not Found |
+# Linux / macOS
+./mvnw verify
+```
 
 ---
 
-## Colección de Pruebas (`requests.http`)
+## Integración Continua (CI con GitHub Actions)
 
-En la raíz del proyecto se incluye el archivo `requests.http`, que contiene peticiones listas para ejecutar con la extensión **REST Client** de VS Code o **HTTP Client** de IntelliJ.
+El archivo [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) automatiza el ciclo de integración ante cada `push` o `pull request` en las ramas `main` y `TP3`:
+1. Levanta un entorno limpio con Ubuntu y **Java 25**.
+2. Garantiza permisos de ejecución multiplataforma para `mvnw`.
+3. Ejecuta `./mvnw -B verify`: compila el proyecto y corre tanto las pruebas unitarias como las de integración contra Docker.
 
-Incluye pruebas para:
-- **Casos de éxito:**
-  - Consumo y mapeo de productos.
-  - CRUD de listas y creación de favoritos asociados a una lista.
-  - Lectura, actualización y eliminación de favoritos.
-  - Obtención de favoritos por lista y traslado transaccional entre listas.
-- **Casos de error:**
-  - `404 Not Found`: Búsqueda, actualización o eliminación de IDs inexistentes (en productos y favoritos).
-  - `400 Bad Request`: Validación fallida al enviar campos en blanco o nulos en `FavoritoRequest`.
-  - `409 Conflict`: Intento de eliminar una lista que todavía posee favoritos.
+---
+
+## Ejecución Local con Docker Compose
+
+Para levantar todo el stack (Spring Boot + PostgreSQL) sin necesidad de tener Java ni PostgreSQL instalados en la máquina anfitriona:
+
+```bash
+docker compose up --build
+```
+* La aplicación quedará escuchando en `http://localhost:8080`.
+* La base de datos persistirá sus datos en el volumen administrado `pgdata`.
 
 ---
 
 ## Arquitectura y Decisiones de Diseño
 
-1. **Desacoplamiento con DTOs (`records`):**
-   - La API no expone el modelo tal cual lo devuelve DummyJSON (`DummyJsonProducto`), sino un DTO propio (`ProductoDTO`).
-   - Para favoritos se separó la entrada (`FavoritoRequest`, con validaciones `@NotNull` y `@NotBlank`) de la salida (`FavoritoResponse`), protegiendo la inmutabilidad y evitando manipulación indebida de `id` o `fechaAgregado`.
-2. **Puertos y adaptadores para favoritos:**
-   - `FavoritoRepository` es el puerto: define el contrato que necesita el dominio para guardar, consultar, actualizar y eliminar favoritos.
-   - `FavoritoService` depende de ese contrato, no de una tecnología de persistencia concreta. Por eso no cambió al reemplazar la implementación en memoria por `FavoritoRepositoryAdapter`.
-   - El adapter JPA transforma entre `Favorito` (record inmutable del dominio) y `FavoritoEntity` (entidad mutable que Hibernate puede administrar). Así, los detalles de JPA y PostgreSQL permanecen fuera del dominio.
-3. **Manejo Centralizado de Excepciones:**
-   - Mediante `@RestControllerAdvice` (`GlobalExceptionHandler`), todos los errores se traducen a respuestas estándar bajo la especificación **ProblemDetail (RFC 7807)** con código de estado, título y detalle.
+### ¿Por qué la autorización por propiedad vive en el Service y no en el Controller? (Consigna 4.5)
+
+El control de acceso por recurso (`buscarPropiaOFallar` en `ListaService`) se implementó deliberadamente en la capa de **Servicio** por las siguientes razones de arquitectura:
+
+1. **Regla de negocio del dominio:** La pertenencia de un recurso forma parte de las invariantes de negocio, no del protocolo HTTP ni de los encabezados de red.
+2. **Acceso al estado persistido:** Para saber si una lista le pertenece al usuario autenticado, es indispensable cargar la entidad desde la base de datos. Los filtros web y controladores solo conocen el ID que viene en la URL y los claims del token, pero no poseen la entidad en memoria.
+3. **Eficiencia y atomicidad:** Resolverlo en el `Service` evita consultas duplicadas. En una única llamada atómica se recupera la entidad, se valida que exista (o 404), se comprueba la propiedad (o 403) y se procede con la lógica de negocio.
+4. **Reutilización:** Si en el futuro se añade otro canal de entrada (gRPC, mensajería asíncrona, tareas programadas), las reglas de seguridad siguen vigentes sin depender de la capa web.
 
 ---
 
-## Persistencia y Evolución del Esquema (Flyway)
+## Endpoints de la API y Seguridad
 
-### ¿Por qué se resolvió con una nueva migración (V4) y no modificando V3?
-En la Consigna 6, la conversión de `lista_id` en una columna obligatoria (`NOT NULL`) y el saneamiento de datos existentes se implementaron creando la migración `V4__lista_id_obligatorio.sql` en lugar de alterar `V3__add_lista_id_a_favoritos.sql`. Esto responde a principios fundamentales de gestión de bases de datos en producción:
-
-1. **Inmutabilidad y validación de Checksums en Flyway:**
-   Flyway almacena en la tabla de metadatos `flyway_schema_history` una suma de comprobación (checksum) por cada script ejecutado. Si modificamos un archivo ya aplicado como `V3`, Flyway detectará una disparidad en el checksum al iniciar la aplicación y abortará el arranque con una excepción (`FlywayValidateException` / `MigrationChecksumException`).
-2. **Consistencia entre múltiples entornos (Local, CI/CD, Staging, Producción):**
-   En un flujo de trabajo profesional, `V3` ya pudo haberse corrido en bases de datos de otros desarrolladores o en ambientes compartidos. Flyway no vuelve a ejecutar scripts con números de versión pasados; por lo tanto, modificar `V3` dejaría a los entornos previamente migrados sin la restricción `NOT NULL`, rompiendo la paridad.
-3. **Evolución segura con migración de datos (Backfill):**
-   Las migraciones reflejan el historial cronológico del esquema. Para pasar de una columna opcional a una obligatoria en una base de datos con datos reales, es indispensable una estrategia en fases:
-   - Primero se creó como anulable en `V3`.
-   - Luego, en `V4`, se crearon los valores por defecto (`'Sin clasificar'`) y se actualizaron los registros huérfanos antes de imponer la restricción física `ALTER COLUMN lista_id SET NOT NULL`. Modificar `V3` directamente habría impedido este saneamiento progresivo en bases ya pobladas.
+| Método | Path | Descripción | Seguridad | Códigos HTTP |
+|---|---|---|---|---|
+| **GET** | `/health` | Chequeo de salud del servicio | Público | 200 |
+| **GET** | `/ping` | Chequeo trivial | Público | 200 |
+| **GET** | `/api/productos/**` | Catálogo externo DummyJSON | Público | 200, 404 |
+| **POST** | `/api/auth/registro` | Registro con contraseña hasheada (BCrypt) | Público | 201, 400, 409 |
+| **POST** | `/api/auth/login` | Autenticación y emisión de JWT | Público | 200, 401 |
+| **GET** | `/api/listas` | Listar listas propias (o todas si es ADMIN) | **Bearer JWT** | 200, 401 |
+| **POST** | `/api/listas` | Crear lista (dueño automático vía token) | **Bearer JWT** | 201, 400, 401 |
+| **GET** | `/api/listas/{id}` | Obtener lista propia o si es ADMIN | **Bearer JWT** | 200, 401, 403, 404 |
+| **DELETE** | `/api/listas/{id}` | Eliminar lista propia o si es ADMIN | **Bearer JWT** | 204, 401, 403, 404, 409 |
+| **POST** | `/api/listas/{id}/mover-favoritos` | Mover favoritos transaccionalmente | **Bearer JWT** | 204, 400, 401, 403, 404 |
+| **GET** | `/api/favoritos` | Listar favoritos | **Bearer JWT** | 200, 401 |
+| **POST** | `/api/favoritos` | Crear favorito | **Bearer JWT** | 201, 400, 401, 404 |
+| **GET** | `/api/favoritos/{id}` | Obtener favorito por ID | **Bearer JWT** | 200, 401, 404 |
+| **PUT** | `/api/favoritos/{id}` | Actualizar favorito | **Bearer JWT** | 200, 400, 401, 404 |
+| **DELETE** | `/api/favoritos/{id}` | Eliminar favorito | **Bearer JWT** | 204, 401, 404 |
 
 ---
 
-## Transacciones y atomicidad: mover favoritos entre listas
+## Colección de Pruebas (`requests.http`)
 
-El endpoint `POST /api/listas/{origenId}/mover-favoritos` traslada todos los favoritos de una lista de origen hacia otra lista de destino. La petición recibe el ID de destino:
-
-```json
-{
-  "destinoId": 2
-}
-```
-
-El caso de uso se resuelve en `ListaService`, que es la capa que contiene las reglas de negocio. Antes de modificar datos, valida que las listas de origen y destino existan; si alguna no existe, la API responde `404 Not Found`. También rechaza usar la misma lista como origen y destino con `400 Bad Request`.
-
-Una vez validados los datos, el servicio reasigna cada `FavoritoEntity` a la lista destino y elimina la lista origen. El método está anotado con `@Transactional`, por lo que todos esos pasos conforman una única transacción de base de datos.
-
-### ¿Por qué es necesaria la transacción?
-
-La operación requiere preservar especialmente dos propiedades ACID:
-
-1. **Atomicidad:** el traslado completo se confirma o se revierte por completo. Si falla el guardado de los favoritos o la eliminación de la lista de origen, Spring marca la transacción para rollback y PostgreSQL no conserva cambios parciales.
-2. **Consistencia:** al finalizar exitosamente, todos los favoritos que pertenecían al origen apuntan al destino y la lista origen ya no existe. No queda una lista eliminada con favoritos que la referencien, ni favoritos en un estado intermedio.
-
-Sin `@Transactional`, cada operación podría confirmarse por separado. Por ejemplo, se podrían mover los favoritos pero fallar al borrar la lista de origen; ese resultado no representa el caso de uso solicitado y deja la información parcialmente actualizada.
+En la raíz del proyecto se incluye el archivo `requests.http` con peticiones configuradas para probar de punta a punta:
+* Registro y login obteniendo el token Bearer.
+* Consultas públicas a productos y health.
+* Acceso con y sin token.
+* Operaciones CRUD sobre listas y favoritos.
